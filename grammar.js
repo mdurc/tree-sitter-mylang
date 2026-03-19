@@ -8,297 +8,297 @@
 // @ts-check
 
 module.exports = grammar({
-  name: "mylang",
+  name: 'mylang',
 
-  conflicts: ($) => [
-    [$.primary_expr, $.new_expr],
+  extras: $ => [
+    /\s/,
+    $.line_comment,
+    $.block_comment,
   ],
 
-  extras: ($) => [/\s+/, $.line_comment, $.block_comment],
-
   rules: {
-    program: ($) => repeat($.top_level),
-
-    top_level: ($) => choice($.struct_decl, $.func_decl, $.stmt,
-      $.define_directive, $.include_directive),
-
-    define_directive: ($) =>
-      seq(
-        "#define",
-        $.identifier,
-        $.define_value
-      ),
-    define_value: ($) => /[^\n]+/,
-
-    include_directive: ($) =>
-      seq(
-        "#include",
-        choice(
-          $.string_literal, // for "filepath"
-          seq("<", /[^>]+/, ">")
-        )
-      ),
-
-    struct_decl: ($) =>
-      seq("struct", $.identifier, "{", optional($.struct_fields), "}"),
-
-    struct_fields: ($) => commaSep($.struct_field),
-    struct_field: ($) => seq($.identifier, ":", $.type),
-
-    func_decl: ($) =>
-      seq(
-        "func",
-        $.identifier,
-        "(",
-        optional($.params),
-        ")",
-        optional(seq("returns", "(", $.identifier, ":", $.type, ")")),
-        $.block,
-      ),
-
-    params: ($) => commaSep($.param),
-    param: ($) =>
-      seq(optional($.function_param_prefix), $.identifier, ":", $.type),
-
-    function_param_prefix: ($) =>
-      choice($.type_prefix, seq("take", $.type_prefix)),
-
-    block: ($) => seq("{", repeat($.stmt), "}"),
-
-    stmt: ($) =>
-      choice(
-        seq($.var_decl, ";"),
-        $.if_stmt,
-        $.for_stmt,
-        $.while_stmt,
-        $.switch_stmt,
-        seq("read", $.expr, ";"),
-        seq($.print_stmt, ";"),
-        $.block,
-        seq($.expr, ";"),
-        seq($.return_stmt, ";"),
-        seq("break", ";"),
-        seq("continue", ";"),
-        seq($.free_stmt, ";"),
-        seq($.error_stmt, ";"),
-        seq($.exit_stmt, ";"),
-        seq("asm", $.block, ";"),
-      ),
-
-    var_decl: ($) =>
-      seq(
-        optional($.type_prefix),
-        $.identifier,
-        choice(seq(":", $.type, optional(seq("=", $.expr))), seq(":=", $.expr)),
-      ),
-
-    if_stmt: ($) =>
-      seq(
-        "if",
-        "(",
-        $.expr,
-        ")",
-        $.block,
-        optional(seq("else", choice($.block, $.if_stmt))),
-      ),
-
-    for_stmt: ($) =>
-      seq(
-        "for",
-        "(",
-        optional(choice($.var_decl, $.expr)),
-        ";",
-        optional($.expr),
-        ";",
-        optional($.expr),
-        ")",
-        $.block,
-      ),
-
-    while_stmt: ($) => seq("while", "(", $.expr, ")", $.block),
-
-    switch_stmt: ($) =>
-      seq("switch", "(", $.expr, ")", "{", repeat($.case_), "}"),
-
-    case_: ($) =>
-      choice(seq("case", $.expr, ":", $.block), seq("default", ":", $.block)),
-
-    print_stmt: ($) => seq("print", commaSep1($.expr)),
-
-    return_stmt: ($) => seq("return", optional($.expr)),
-
-    free_stmt: ($) => seq("free", optional("[]"), $.expr),
-
-    error_stmt: ($) => seq("error", $.string_literal),
-
-    exit_stmt: ($) => seq("exit", $.int_literal),
-
-    expr: ($) => $.assign_expr,
-
-    // Precedence
-    assign_expr: ($) => prec.right(2, choice(
-      seq($.logical_or_expr, "=", $.assign_expr),
-      $.logical_or_expr
+    // <Program> ::= ( <StructDecl> | <FunctionDecl> | <Stmt> )*
+    program: $ => repeat(choice(
+      $.define_directive,
+      $.include_directive,
+      $.struct_decl,
+      $.function_decl,
+      $.statement
     )),
 
-    logical_or_expr: ($) =>
-      prec.left(3, leftAssoc($.logical_and_expr, "or", $.logical_and_expr)),
+    // Preprocessor Directives
+    define_directive: $ => seq('#define', $.identifier, /[^\n]+/),
+    include_directive: $ => seq('#include', $.string_literal),
 
-    logical_and_expr: ($) =>
-      prec.left(4, leftAssoc($.equality_expr, "and", $.equality_expr)),
+    // Comments (from standard behavior)
+    line_comment: $ => token(seq('//', /.*/)),
+    block_comment: $ => token(seq('/*', /[^*]*\*+([^/*][^*]*\*+)*/, '/')),
 
-    equality_expr: ($) =>
-      prec.left(
-        5,
-        leftAssoc($.comparison_expr, choice("==", "!="), $.comparison_expr),
-      ),
+    // --- Declarations ---
+    // <StructDecl> ::= 'struct' Identifier '{' <StructFields>? '}'
+    struct_decl: $ => seq(
+      'struct',
+      field('name', $.identifier),
+      '{',
+          optional($.struct_fields),
+          '}'
+    ),
 
-    comparison_expr: ($) =>
-      prec.left(
-        6,
-        leftAssoc(
-          $.additive_expr,
-          choice("<", "<=", ">", ">="),
-          $.additive_expr,
-        ),
-      ),
+    struct_fields: $ => seq(
+      $.struct_field,
+      repeat(seq(',', $.struct_field))
+    ),
 
-    additive_expr: ($) =>
-      prec.left(
-        7,
-        leftAssoc(
-          $.multiplicative_expr,
-          choice("+", "-"),
-          $.multiplicative_expr,
-        ),
-      ),
+    struct_field: $ => seq(
+      field('name', $.identifier),
+      ':',
+      field('type', $.type)
+    ),
 
-    multiplicative_expr: ($) =>
-      prec.left(
-        8,
-        leftAssoc($.unary_expr, choice("*", "/", "%"), $.unary_expr),
-      ),
+    // <FunctionDecl> ::= ('extern')? 'func' Identifier '(' <Params>? ')' <ReturnType>? ( <Block> | ';' )
+    function_decl: $ => seq(
+      optional('extern'),
+      'func',
+      field('name', $.identifier),
+      '(',
+        optional($.params),
+        ')',
+      optional($.return_type),
+      choice($.block, ';')
+    ),
 
-    unary_expr: ($) => choice(
-      seq('&', optional($.type_prefix), $.unary_expr),
-      seq(choice('*', '!', '-', '+'), $.unary_expr),
+    params: $ => seq(
+      $.param,
+      repeat(seq(',', $.param))
+    ),
+
+    param: $ => seq(
+      optional($.function_param_prefix),
+      field('name', $.identifier),
+      ':',
+      field('type', $.type)
+    ),
+
+    return_type: $ => seq(
+      'returns',
+      '(',
+        field('name', $.identifier),
+        ':',
+        field('type', $.type),
+        ')'
+    ),
+
+    block: $ => seq('{', repeat($.statement), '}'),
+
+    // --- Statements ---
+    statement: $ => choice(
+      seq($.var_decl, ';'),
+      $.if_stmt,
+      $.for_stmt,
+      $.while_stmt,
+      $.switch_stmt,
+      seq('read', $.expression, ';'),
+      seq($.print_stmt, ';'),
+      $.block,
+      seq($.expression, ';'),
+      seq($.return_stmt, ';'),
+      seq($.break_stmt, ';'),
+      seq($.continue_stmt, ';'),
+      seq($.free_stmt, ';'),
+      seq($.error_stmt, ';'),
+      seq($.exit_stmt, ';'),
+      seq('asm', $.block, ';')
+    ),
+
+    var_decl: $ => seq(
+      optional($.type_prefix),
+      field('name', $.identifier),
+      choice(
+        seq(':', field('type', $.type), optional(seq('=', $.expression))),
+        seq(':=', $.expression)
+      )
+    ),
+
+    if_stmt: $ => seq(
+      'if', '(', $.expression, ')', $.block,
+      optional(seq('else', choice($.block, $.if_stmt)))
+    ),
+
+    for_stmt: $ => seq(
+      'for', '(',
+        optional(choice($.var_decl, $.expression)), ';',
+        optional($.expression), ';',
+        optional($.expression),
+        ')', $.block
+    ),
+
+    while_stmt: $ => seq('while', '(', $.expression, ')', $.block),
+
+    switch_stmt: $ => seq('switch', '(', $.expression, ')', '{', repeat($.case), '}'),
+
+    case: $ => choice(
+      seq('case', $.expression, ':', $.block),
+      seq('default', ':', $.block)
+    ),
+
+    print_stmt: $ => seq('print', $.expression, repeat(seq(',', $.expression))),
+    return_stmt: $ => seq('return', optional($.expression)),
+    break_stmt: $ => 'break',
+    continue_stmt: $ => 'continue',
+    free_stmt: $ => seq('free', optional('[]'), $.expression),
+    error_stmt: $ => seq('error', $.string_literal),
+    exit_stmt: $ => seq('exit', $.integer_literal),
+
+    // --- Expressions ---
+    expression: $ => $.assignment_expr,
+
+    // Right-associative assignment
+    assignment_expr: $ => choice(
+      $.logical_or_expr,
+      prec.right(1, seq($.logical_or_expr, '=', $.assignment_expr))
+    ),
+
+    // Left-associative logical OR
+    logical_or_expr: $ => choice(
+      $.logical_and_expr,
+      prec.left(2, seq($.logical_or_expr, 'or', $.logical_and_expr))
+    ),
+
+    // Left-associative logical AND
+    logical_and_expr: $ => choice(
+      $.equality_expr,
+      prec.left(3, seq($.logical_and_expr, 'and', $.equality_expr))
+    ),
+
+    // Left-associative equality
+    equality_expr: $ => choice(
+      $.relational_expr,
+      prec.left(4, seq($.equality_expr, choice('==', '!='), $.relational_expr))
+    ),
+
+    // Left-associative relational
+    relational_expr: $ => choice(
+      $.additive_expr,
+      prec.left(5, seq($.relational_expr, choice('<', '>', '<=', '>='), $.additive_expr))
+    ),
+
+    // Left-associative additive
+    additive_expr: $ => choice(
+      $.multiplicative_expr,
+      prec.left(6, seq($.additive_expr, choice('+', '-'), $.multiplicative_expr))
+    ),
+
+    // Left-associative multiplicative
+    multiplicative_expr: $ => choice(
+      $.unary_expr,
+      prec.left(7, seq($.multiplicative_expr, choice('*', '/', '%'), $.unary_expr))
+    ),
+
+    // Right-associative unary prefix operators
+    unary_expr: $ => choice(
+      prec.right(8, seq(
+        choice(seq('&', optional($.type_prefix)), '*', '!', '-'),
+        $.unary_expr
+      )),
       $.postfix_expr
     ),
 
-    postfix_expr: ($) => seq($.primary_expr, repeat($.postfix_suffix)),
-
-    postfix_suffix: ($) =>
-      choice(
-        seq(".", $.identifier),
-        seq("(", optional(commaSep($.arg)), ")"),
-        seq("[", $.expr, "]"),
-      ),
-
-    arg: ($) => seq(optional("give"), $.expr),
-
-    primary_expr: ($) =>
-      choice(
-        $.literal,
-        $.identifier,
-        seq("(", $.expr, ")"),
-        $.struct_literal,
-        $.new_expr,
-      ),
-
-    struct_literal: ($) =>
-      seq(
-        $.identifier,
-        $.struct_initializer
-      ),
-
-    struct_initializer: ($) =>
-      seq(
-        "{",
-        optional(commaSep1(seq($.identifier, "=", $.expr))),
-        "}"
-      ),
-
-    new_expr: ($) =>
-      seq(
-        "new",
-        "<",
-        optional($.type_prefix),
-        $.type,
-        ">",
+    // Left-associative postfix suffix chains (e.g., a.b[0]())
+    postfix_expr: $ => choice(
+      $.primary_expr,
+      prec.left(9, seq(
+        $.postfix_expr,
         choice(
-          seq("[", $.expr, "]"),
-          seq("(", optional(choice($.struct_literal, $.expr)), ")"),
-        ),
-      ),
+          seq('.', field('property', $.identifier)),
+          seq('(', optional($.args), ')'),
+          seq('[', $.expression, ']')
+        )
+      ))
+    ),
 
-    literal: ($) =>
+    primary_expr: $ => choice(
+      $.primitive_literal,
+      $.identifier,
+      seq('(', $.expression, ')'),
+      $.struct_literal,
+      $.new_expr
+    ),
+
+    primitive_literal: $ => choice(
+      $.integer_literal,
+      $.float_literal,
+      $.string_literal,
+      $.boolean_literal,
+      'null'
+    ),
+
+    struct_literal: $ => seq(
+      $.identifier,
+      '{',
+          optional(seq(
+            $.identifier, '=', $.expression,
+            repeat(seq(',', $.identifier, '=', $.expression))
+          )),
+          '}'
+    ),
+
+    new_expr: $ => seq(
+      'new', '<', optional($.type_prefix), $.type, '>',
       choice(
-        $.int_literal,
-        $.float_literal,
-        $.string_literal,
-        $.bool_literal,
-        "null",
-      ),
+        seq('[', $.expression, ']'),
+        seq('(', optional($.expression), ')')
+      )
+    ),
 
-    type: ($) =>
-      choice($.basic_type, $.struct_type, $.pointer_type, $.function_type),
+    args: $ => seq(
+      $.arg,
+      repeat(seq(',', $.arg))
+    ),
 
-    type_prefix: ($) => choice("mut", "imm"),
+    arg: $ => seq(
+      optional('give'),
+      $.expression
+    ),
 
-    basic_type: ($) =>
-      choice(
-        "i32",
-        "u8",
-        "string",
-        "bool",
-        "u0",
-        "u16",
-        "u32",
-        "u64",
-        "i8",
-        "i16",
-        "i64",
-        "f64",
-      ),
+    // --- Types ---
+    type: $ => choice(
+      $.basic_type,
+      $.struct_type,
+      $.pointer_type,
+      $.function_type
+    ),
 
-    struct_type: ($) => $.identifier,
+    basic_type: $ => choice(
+      'i32', 'u8', 'string', 'bool', 'u0', 'u16', 'u32', 'u64', 'i8', 'i16', 'i64', 'f64'
+    ),
 
-    pointer_type: ($) => seq("ptr", "<", optional($.type_prefix), $.type, ">"),
+    struct_type: $ => $.identifier,
 
-    function_type: ($) =>
-      seq(
-        "func",
-        "(",
-        optional(
-          commaSep(
-            seq(optional(seq(optional($.function_param_prefix), ":")), $.type),
-          ),
-        ),
-        ")",
-        "->",
-        $.type,
-      ),
+    pointer_type: $ => seq(
+      'ptr', '<', optional($.type_prefix), $.type, '>'
+    ),
 
-    identifier: ($) => /[a-zA-Z_][a-zA-Z0-9_]*/,
+    function_type: $ => seq(
+      'func', '(',
+        optional(seq(
+          seq(optional(seq($.function_param_prefix, ':')), $.type),
+          repeat(seq(',', optional(seq($.function_param_prefix, ':')), $.type))
+        )),
+        ')', '->', $.type
+    ),
 
-    int_literal: ($) => /[0-9]+/,
-    float_literal: ($) => /[0-9]+\.[0-9]+/,
-    string_literal: ($) => /"([^"\\]|\\.)*"/,
-    bool_literal: ($) => choice("true", "false"),
+    type_prefix: $ => choice('mut', 'imm'),
 
-    line_comment: ($) => token(seq("//", /.*\n/)),
-    block_comment: ($) => seq("/*", repeat(/.|\n|\r/), "*/"),
-  },
+    function_param_prefix: $ => choice(
+      $.type_prefix,
+      seq('take', optional($.type_prefix))
+    ),
+
+    // --- Primitives ---
+    identifier: $ => /[a-zA-Z_][a-zA-Z0-9_]*/,
+    integer_literal: $ => /[0-9]+/,
+    float_literal: $ => /[0-9]+\.[0-9]+/,
+    string_literal: $ => /"([^"\\]|\\.)*"/,
+    boolean_literal: $ => choice('true', 'false')
+  }
 });
-
-function commaSep(rule) {
-  return seq(rule, repeat(seq(",", rule)));
-}
-
-function commaSep1(rule) {
-  return seq(rule, repeat(seq(",", rule)));
-}
-
-function leftAssoc(left, operator, right) {
-  return seq(left, repeat(seq(operator, right)));
-}

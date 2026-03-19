@@ -8,8 +8,6 @@
   "else"
   "while"
   "for"
-  "break"
-  "continue"
   "struct"
   "switch"
   "case"
@@ -45,7 +43,7 @@
 (struct_literal
   (identifier) @type)
 
-(struct_initializer
+(struct_decl
   "{" @punctuation.bracket
   "}" @punctuation.bracket)
 
@@ -57,7 +55,7 @@
 (type_prefix) @type.qualifier
 
 ; Functions
-(func_decl
+(function_decl
   (identifier) @function)
 
 ; Parameters
@@ -69,7 +67,7 @@
   (identifier) @variable)
 
 ; Literals
-(int_literal) @number
+(integer_literal) @number
 (float_literal) @number
 (string_literal) @string
 
@@ -107,18 +105,18 @@
 (define_directive
   "#define" @preproc
   (identifier) @constant
-  (define_value) @string)
+   @string)
 
 (include_directive
   "#include" @preproc
   (string_literal) @string)
 
 ; Function call
-(postfix_suffix
+(postfix_expr
   "(" @punctuation.bracket
   ")" @punctuation.bracket)
 
 ; Array access
-(postfix_suffix
+(postfix_expr
   "[" @punctuation.bracket
   "]" @punctuation.bracket)
