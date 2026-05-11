@@ -280,6 +280,7 @@ module.exports = grammar({
       $.integer_literal,
       $.float_literal,
       $.string_literal,
+      $.char_literal,
       $.boolean_literal,
       'null'
     ),
@@ -366,6 +367,7 @@ module.exports = grammar({
 
     float_literal: $ => /[0-9]+\.[0-9]+/,
     string_literal: $ => /"([^"\\]|\\.)*"/,
-    boolean_literal: $ => choice('true', 'false')
+    boolean_literal: $ => choice('true', 'false'),
+    char_literal: $ => /'([^'\\]|\\.)'/,
   }
 });

@@ -1750,6 +1750,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "char_literal"
+        },
+        {
+          "type": "SYMBOL",
           "name": "boolean_literal"
         },
         {
@@ -2336,6 +2340,10 @@
           "value": "false"
         }
       ]
+    },
+    "char_literal": {
+      "type": "PATTERN",
+      "value": "'([^'\\\\]|\\\\.)'"
     }
   },
   "extras": [
