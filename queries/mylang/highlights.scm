@@ -1,6 +1,7 @@
 ; Keywords
 [
   "func"
+  "extern"
   "returns"
   "return"
   "print"
@@ -9,6 +10,7 @@
   "while"
   "for"
   "struct"
+  "enum"
   "switch"
   "case"
   "default"
@@ -17,12 +19,15 @@
   "read"
   "free"
   "new"
-  "take"
+  "cast"
+  "sizeof"
+  "break"
+  "continue"
   "asm"
 ] @keyword
 
-"imm" @keyword
-"mut" @keyword
+"imm" @keyword.modifier
+"mut" @keyword.modifier
 "null" @constant.builtin
 
 ; Boolean literals
@@ -37,34 +42,45 @@
 (pointer_type "ptr" @type.builtin)
 (function_type "func" @type.builtin)
 
-(struct_decl
-  (identifier) @type)
+(struct_decl name: (identifier) @type)
+(struct_literal (identifier) @type)
 
-(struct_literal
-  (identifier) @type)
+(enum_decl name: (identifier) @type)
+(enum_variant name: (identifier) @constant)
+
+; Enum literal: EnumName::VariantName
+(enum_literal
+  (identifier) @type
+  .
+  (identifier) @constant)
 
 (struct_decl
   "{" @punctuation.bracket
   "}" @punctuation.bracket)
 
 (new_expr
-  (type) @type)
-(new_expr
   "new" @keyword.operator)
 
-(type_prefix) @type.qualifier
+(type_prefix) @keyword.modifier
 
 ; Functions
-(function_decl
-  (identifier) @function)
+(function_decl name: (identifier) @function)
 
 ; Parameters
-(param
-  (identifier) @parameter)
+(param name: (identifier) @parameter)
 
 ; Variables
-(var_decl
-  (identifier) @variable)
+(var_decl name: (identifier) @variable)
+
+; Properties/Fields
+(struct_field name: (identifier) @property)
+(postfix_expr property: (identifier) @property)
+
+; Case pattern enum matching (EnumName::Variant)
+(case_pattern
+  (identifier) @type
+  .
+  (identifier) @constant)
 
 ; Literals
 (integer_literal) @number
@@ -76,22 +92,12 @@
   ":="
   "or"
   "and"
-  "=" "!="
+  "=" "==" "!="
   "<" "<=" ">" ">="
   "+" "-"
   "*" "/" "%"
-  "!" "&"
+  "!" "&" "|" "^" "<<" ">>"
 ] @operator
-
-; Punctuation
-;[
-;  "(" ")"
-;  "{" "}"
-;  "[" "]"
-;  ";" ","
-;  "." ":"
-;  "<" ">"
-;] @punctuation.delimiter ; makes them light gray
 
 ; Comments
 (line_comment) @comment
@@ -105,18 +111,17 @@
 (define_directive
   "#define" @preproc
   (identifier) @constant
-   @string)
+  @string)
 
 (include_directive
   "#include" @preproc
   (string_literal) @string)
 
-; Function call
+; Function call / Array access wrappers
 (postfix_expr
   "(" @punctuation.bracket
   ")" @punctuation.bracket)
 
-; Array access
 (postfix_expr
   "[" @punctuation.bracket
   "]" @punctuation.bracket)
