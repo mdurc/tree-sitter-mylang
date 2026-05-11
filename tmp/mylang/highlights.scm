@@ -21,10 +21,11 @@
   "new"
   "cast"
   "sizeof"
-  "break"
-  "continue"
   "asm"
 ] @keyword
+
+"break" @keyword
+"continue" @keyword
 
 "imm" @keyword.modifier
 "mut" @keyword.modifier
