@@ -19,21 +19,6 @@
     }
   },
   {
-    "type": "arg",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "args",
     "named": true,
     "fields": {},
@@ -42,7 +27,7 @@
       "required": true,
       "types": [
         {
-          "type": "arg",
+          "type": "expression",
           "named": true
         }
       ]
@@ -71,6 +56,63 @@
     "type": "basic_type",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "bitwise_and_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "bitwise_and_expr",
+          "named": true
+        },
+        {
+          "type": "equality_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "bitwise_or_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "bitwise_or_expr",
+          "named": true
+        },
+        {
+          "type": "bitwise_xor_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "bitwise_xor_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "bitwise_and_expr",
+          "named": true
+        },
+        {
+          "type": "bitwise_xor_expr",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "block",
@@ -105,7 +147,45 @@
           "named": true
         },
         {
+          "type": "case_pattern",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "case_pattern",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
           "type": "expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "cast_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "type",
           "named": true
         }
       ]
@@ -121,6 +201,77 @@
       "types": [
         {
           "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "enum_decl",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "enum_variant",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "enum_literal",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "enum_variant",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "struct_field",
           "named": true
         }
       ]
@@ -150,11 +301,11 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "types": [
         {
-          "type": "string_literal",
+          "type": "expression",
           "named": true
         }
       ]
@@ -166,10 +317,10 @@
     "fields": {},
     "children": {
       "multiple": false,
-      "required": true,
+      "required": false,
       "types": [
         {
-          "type": "integer_literal",
+          "type": "expression",
           "named": true
         }
       ]
@@ -263,21 +414,6 @@
     }
   },
   {
-    "type": "function_param_prefix",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "type_prefix",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "function_type",
     "named": true,
     "fields": {},
@@ -286,11 +422,11 @@
       "required": true,
       "types": [
         {
-          "type": "function_param_prefix",
+          "type": "type",
           "named": true
         },
         {
-          "type": "type",
+          "type": "type_prefix",
           "named": true
         }
       ]
@@ -335,6 +471,11 @@
     }
   },
   {
+    "type": "integer_literal",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "logical_and_expr",
     "named": true,
     "fields": {},
@@ -343,7 +484,7 @@
       "required": true,
       "types": [
         {
-          "type": "equality_expr",
+          "type": "bitwise_or_expr",
           "named": true
         },
         {
@@ -444,7 +585,7 @@
       "required": false,
       "types": [
         {
-          "type": "function_param_prefix",
+          "type": "type_prefix",
           "named": true
         }
       ]
@@ -531,6 +672,14 @@
       "required": true,
       "types": [
         {
+          "type": "cast_expr",
+          "named": true
+        },
+        {
+          "type": "enum_literal",
+          "named": true
+        },
+        {
           "type": "expression",
           "named": true
         },
@@ -544,6 +693,10 @@
         },
         {
           "type": "primitive_literal",
+          "named": true
+        },
+        {
+          "type": "sizeof_expr",
           "named": true
         },
         {
@@ -609,6 +762,10 @@
           "named": true
         },
         {
+          "type": "enum_decl",
+          "named": true
+        },
+        {
           "type": "function_decl",
           "named": true
         },
@@ -636,11 +793,11 @@
       "required": true,
       "types": [
         {
-          "type": "additive_expr",
+          "type": "relational_expr",
           "named": true
         },
         {
-          "type": "relational_expr",
+          "type": "shift_expr",
           "named": true
         }
       ]
@@ -685,6 +842,40 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "shift_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "additive_expr",
+          "named": true
+        },
+        {
+          "type": "shift_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "sizeof_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "type",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -1053,6 +1244,10 @@
     "named": false
   },
   {
+    "type": "::",
+    "named": false
+  },
+  {
     "type": ":=",
     "named": false
   },
@@ -1062,6 +1257,10 @@
   },
   {
     "type": "<",
+    "named": false
+  },
+  {
+    "type": "<<",
     "named": false
   },
   {
@@ -1085,15 +1284,19 @@
     "named": false
   },
   {
+    "type": ">>",
+    "named": false
+  },
+  {
     "type": "[",
     "named": false
   },
   {
-    "type": "[]",
+    "type": "]",
     "named": false
   },
   {
-    "type": "]",
+    "type": "^",
     "named": false
   },
   {
@@ -1122,6 +1325,10 @@
     "named": false
   },
   {
+    "type": "cast",
+    "named": false
+  },
+  {
     "type": "continue_stmt",
     "named": true
   },
@@ -1131,6 +1338,10 @@
   },
   {
     "type": "else",
+    "named": false
+  },
+  {
+    "type": "enum",
     "named": false
   },
   {
@@ -1170,10 +1381,6 @@
     "named": false
   },
   {
-    "type": "give",
-    "named": false
-  },
-  {
     "type": "i16",
     "named": false
   },
@@ -1200,10 +1407,6 @@
   {
     "type": "imm",
     "named": false
-  },
-  {
-    "type": "integer_literal",
-    "named": true
   },
   {
     "type": "line_comment",
@@ -1247,6 +1450,10 @@
     "named": false
   },
   {
+    "type": "sizeof",
+    "named": false
+  },
+  {
     "type": "string",
     "named": false
   },
@@ -1260,10 +1467,6 @@
   },
   {
     "type": "switch",
-    "named": false
-  },
-  {
-    "type": "take",
     "named": false
   },
   {
@@ -1296,6 +1499,10 @@
   },
   {
     "type": "{",
+    "named": false
+  },
+  {
+    "type": "|",
     "named": false
   },
   {

@@ -17,12 +17,14 @@ module.exports = grammar({
   ],
 
   rules: {
-    // <Program> ::= ( <StructDecl> | <FunctionDecl> | <Stmt> )*
+    // <Program> ::= ( <StructDecl> | <FunctionDecl> | <Stmt> | <EnumDecl> )*
+    // Note: EnumDecl was added here so it can be parsed at the top level
     program: $ => repeat(choice(
       $.define_directive,
       $.include_directive,
       $.struct_decl,
       $.function_decl,
+      $.enum_decl,
       $.statement
     )),
 
@@ -30,18 +32,19 @@ module.exports = grammar({
     define_directive: $ => seq('#define', $.identifier, /[^\n]+/),
     include_directive: $ => seq('#include', $.string_literal),
 
-    // Comments (from standard behavior)
+    // Comments
     line_comment: $ => token(seq('//', /.*/)),
     block_comment: $ => token(seq('/*', /[^*]*\*+([^/*][^*]*\*+)*/, '/')),
 
     // --- Declarations ---
-    // <StructDecl> ::= 'struct' Identifier '{' <StructFields>? '}'
+    // <StructDecl> ::= 'struct' Identifier ('{' <StructFields>? '}' | ';')
     struct_decl: $ => seq(
       'struct',
       field('name', $.identifier),
-      '{',
-          optional($.struct_fields),
-          '}'
+      choice(
+        seq('{', optional($.struct_fields), '}'),
+        ';'
+      )
     ),
 
     struct_fields: $ => seq(
@@ -53,6 +56,22 @@ module.exports = grammar({
       field('name', $.identifier),
       ':',
       field('type', $.type)
+    ),
+
+    // <EnumDecl> ::= 'enum' <Identifier> '{' <EnumVariant> (',' <EnumVariant>)* '}'
+    enum_decl: $ => seq(
+      'enum',
+      field('name', $.identifier),
+      '{',
+      $.enum_variant,
+      repeat(seq(',', $.enum_variant)),
+      '}'
+    ),
+
+    // <EnumVariant> ::= <Identifier> ('{' <StructField>* '}')?
+    enum_variant: $ => seq(
+      field('name', $.identifier),
+      optional(seq('{', repeat($.struct_field), '}'))
     ),
 
     // <FunctionDecl> ::= ('extern')? 'func' Identifier '(' <Params>? ')' <ReturnType>? ( <Block> | ';' )
@@ -73,7 +92,7 @@ module.exports = grammar({
     ),
 
     param: $ => seq(
-      optional($.function_param_prefix),
+      optional($.type_prefix),
       field('name', $.identifier),
       ':',
       field('type', $.type)
@@ -137,17 +156,23 @@ module.exports = grammar({
     switch_stmt: $ => seq('switch', '(', $.expression, ')', '{', repeat($.case), '}'),
 
     case: $ => choice(
-      seq('case', $.expression, ':', $.block),
+      seq('case', $.case_pattern, ':', $.block),
       seq('default', ':', $.block)
     ),
 
+    case_pattern: $ => choice(
+      prec(1, seq($.identifier, '::', $.identifier, optional(seq('(', $.identifier, ')')))),
+      $.expression
+    ),
+
     print_stmt: $ => seq('print', $.expression, repeat(seq(',', $.expression))),
+    error_stmt: $ => seq('error', $.expression, repeat(seq(',', $.expression))),
+
     return_stmt: $ => seq('return', optional($.expression)),
+    exit_stmt: $ => seq('exit', optional($.expression)),
+    free_stmt: $ => seq('free', $.expression),
     break_stmt: $ => 'break',
     continue_stmt: $ => 'continue',
-    free_stmt: $ => seq('free', optional('[]'), $.expression),
-    error_stmt: $ => seq('error', $.string_literal),
-    exit_stmt: $ => seq('exit', $.integer_literal),
 
     // --- Expressions ---
     expression: $ => $.assignment_expr,
@@ -166,37 +191,61 @@ module.exports = grammar({
 
     // Left-associative logical AND
     logical_and_expr: $ => choice(
+      $.bitwise_or_expr,
+      prec.left(3, seq($.logical_and_expr, 'and', $.bitwise_or_expr))
+    ),
+
+    // Left-associative bitwise OR
+    bitwise_or_expr: $ => choice(
+      $.bitwise_xor_expr,
+      prec.left(4, seq($.bitwise_or_expr, '|', $.bitwise_xor_expr))
+    ),
+
+    // Left-associative bitwise XOR
+    bitwise_xor_expr: $ => choice(
+      $.bitwise_and_expr,
+      prec.left(5, seq($.bitwise_xor_expr, '^', $.bitwise_and_expr))
+    ),
+
+    // Left-associative bitwise AND
+    bitwise_and_expr: $ => choice(
       $.equality_expr,
-      prec.left(3, seq($.logical_and_expr, 'and', $.equality_expr))
+      prec.left(6, seq($.bitwise_and_expr, '&', $.equality_expr))
     ),
 
     // Left-associative equality
     equality_expr: $ => choice(
       $.relational_expr,
-      prec.left(4, seq($.equality_expr, choice('==', '!='), $.relational_expr))
+      prec.left(7, seq($.equality_expr, choice('==', '!='), $.relational_expr))
     ),
 
     // Left-associative relational
     relational_expr: $ => choice(
+      $.shift_expr,
+      prec.left(8, seq($.relational_expr, choice('<', '>', '<=', '>='), $.shift_expr))
+    ),
+
+    // Left-associative shift
+    shift_expr: $ => choice(
       $.additive_expr,
-      prec.left(5, seq($.relational_expr, choice('<', '>', '<=', '>='), $.additive_expr))
+      prec.left(9, seq($.shift_expr, choice('<<', '>>'), $.additive_expr))
     ),
 
     // Left-associative additive
     additive_expr: $ => choice(
       $.multiplicative_expr,
-      prec.left(6, seq($.additive_expr, choice('+', '-'), $.multiplicative_expr))
+      prec.left(10, seq($.additive_expr, choice('+', '-'), $.multiplicative_expr))
     ),
 
     // Left-associative multiplicative
     multiplicative_expr: $ => choice(
       $.unary_expr,
-      prec.left(7, seq($.multiplicative_expr, choice('*', '/', '%'), $.unary_expr))
+      prec.left(11, seq($.multiplicative_expr, choice('*', '/', '%'), $.unary_expr))
     ),
 
     // Right-associative unary prefix operators
     unary_expr: $ => choice(
-      prec.right(8, seq(
+      prec.right(12, seq(
         choice(seq('&', optional($.type_prefix)), '*', '!', '-'),
         $.unary_expr
       )),
@@ -206,7 +255,7 @@ module.exports = grammar({
     // Left-associative postfix suffix chains (e.g., a.b[0]())
     postfix_expr: $ => choice(
       $.primary_expr,
-      prec.left(9, seq(
+      prec.left(13, seq(
         $.postfix_expr,
         choice(
           seq('.', field('property', $.identifier)),
@@ -221,7 +270,10 @@ module.exports = grammar({
       $.identifier,
       seq('(', $.expression, ')'),
       $.struct_literal,
-      $.new_expr
+      $.enum_literal,
+      $.new_expr,
+      $.cast_expr,
+      $.sizeof_expr
     ),
 
     primitive_literal: $ => choice(
@@ -242,6 +294,18 @@ module.exports = grammar({
           '}'
     ),
 
+    enum_literal: $ => seq(
+      $.identifier, '::', $.identifier,
+      optional(seq(
+        '{',
+        optional(seq(
+            $.identifier, '=', $.expression,
+            repeat(seq(',', $.identifier, '=', $.expression))
+        )),
+        '}'
+      ))
+    ),
+
     new_expr: $ => seq(
       'new', '<', optional($.type_prefix), $.type, '>',
       choice(
@@ -250,14 +314,17 @@ module.exports = grammar({
       )
     ),
 
-    args: $ => seq(
-      $.arg,
-      repeat(seq(',', $.arg))
+    cast_expr: $ => seq(
+      'cast', '<', $.type, '>', '(', $.expression, ')'
     ),
 
-    arg: $ => seq(
-      optional('give'),
-      $.expression
+    sizeof_expr: $ => seq(
+      'sizeof', '<', $.type, '>'
+    ),
+
+    args: $ => seq(
+      $.expression,
+      repeat(seq(',', $.expression))
     ),
 
     // --- Types ---
@@ -281,22 +348,22 @@ module.exports = grammar({
     function_type: $ => seq(
       'func', '(',
         optional(seq(
-          seq(optional(seq($.function_param_prefix, ':')), $.type),
-          repeat(seq(',', optional(seq($.function_param_prefix, ':')), $.type))
+          seq(optional(seq($.type_prefix, ':')), $.type),
+          repeat(seq(',', optional(seq($.type_prefix, ':')), $.type))
         )),
         ')', '->', $.type
     ),
 
     type_prefix: $ => choice('mut', 'imm'),
 
-    function_param_prefix: $ => choice(
-      $.type_prefix,
-      seq('take', optional($.type_prefix))
-    ),
-
     // --- Primitives ---
     identifier: $ => /[a-zA-Z_][a-zA-Z0-9_]*/,
-    integer_literal: $ => /[0-9]+/,
+
+    integer_literal: $ => choice(
+      /0[xX][0-9a-fA-F]+/,
+      /[0-9]+/
+    ),
+
     float_literal: $ => /[0-9]+\.[0-9]+/,
     string_literal: $ => /"([^"\\]|\\.)*"/,
     boolean_literal: $ => choice('true', 'false')
